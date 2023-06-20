@@ -8,11 +8,13 @@ from datetime import datetime
 app = Flask(__name__)
 
 model = pickle.load(open("./model/model.pkl", "rb"))
-uri = "...."
+
+uri = "mongodb://localhost:27017"
+
 
 
 client = MongoClient(uri, server_api=ServerApi('1'))
-database = client['football']
+database = client['football-predict']
 collection = database['master']
 
 @app.route("/predict", methods=['POST'])
@@ -33,10 +35,13 @@ def predict():
     data_input = data_input.reshape(1, -1)
     data_input= data_input.reshape((1, 1, 27))
     prediction = model.predict(data_input)
-    prediction = prediction.tolist()
+    prediction = float(prediction)
+    away_prediction = 100 - prediction
 
-
-    return jsonify({"Prediction": prediction[0], "date":latest_data['date']})
+    if data["opp_code"] == data["home_code"] :
+        return jsonify({"Message" : "The Team Cannot Same"})
+    else :
+        return jsonify({"Home Prediction": prediction, "Away Prediction":away_prediction})
 
     # if latest_game is not None:
     #     date = latest_game['date']
