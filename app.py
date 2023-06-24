@@ -5,16 +5,17 @@ import pickle
 import numpy as np
 from datetime import datetime
 from flask_cors import cross_origin
+from bson import ObjectId
 
 app = Flask(__name__)
 
-model = pickle.load(open("./model/model.pkl", "rb"))
+model = pickle.load(open("./model/model3.pkl", "rb"))
 
 uri = "mongodb://localhost:27017"
 client = MongoClient(uri, server_api=ServerApi('1'))
 database = client['football-predict']
 collection = database['master']
-pred_collection = database['prediksi']  # New collection for predictions
+pred_collection = database['prediksi']
 
 @app.route("/api/predict", methods=['POST'])
 @cross_origin()
@@ -61,7 +62,7 @@ def predict():
             "detail" : detail,
             "group" : group_concat
         }
-        pred_collection.insert_one(pred_data)  # Insert the prediction data into the collection
+        pred_collection.insert_one(pred_data)
 
         return jsonify({"Home Prediction": prediction, "Away Prediction": away_prediction})
     
@@ -71,6 +72,7 @@ def get_predictions():
     predictions = []
     for prediction in pred_collection.find():
         prediction_data = {
+            "id": str(prediction["_id"]),
             "home_prediction": prediction["home_prediction"],
             "away_prediction": prediction["away_prediction"],
             "group": prediction["group"],
@@ -82,6 +84,25 @@ def get_predictions():
         predictions.append(prediction_data)
 
     return jsonify(predictions)
+
+@app.route("/api/predictions/<prediction_id>", methods=['GET'])
+@cross_origin()
+def get_prediction(prediction_id):
+    prediction = pred_collection.find_one({"_id": ObjectId(prediction_id)})
+    if prediction:
+        prediction_data = {
+            "id": str(prediction["_id"]),
+            "home_prediction": prediction["home_prediction"],
+            "away_prediction": prediction["away_prediction"],
+            "group": prediction["group"],
+            "match_date": prediction["match_date"],
+            "home_code": prediction["home_code"],
+            "opp_code": prediction["opp_code"],
+            "detail": prediction["detail"]
+        }
+        return jsonify(prediction_data)
+    else:
+        return jsonify({"Message": "Prediction not found"})
 
 if __name__ == '__main__':
     app.run(debug=True)
