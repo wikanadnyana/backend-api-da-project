@@ -16,6 +16,7 @@ client = MongoClient(uri, server_api=ServerApi('1'))
 database = client['football-predict']
 collection = database['master']
 pred_collection = database['prediksi']
+klasemen_collection = database['klasemen']
 
 @app.route("/api/predict", methods=['POST'])
 @cross_origin()
@@ -103,6 +104,39 @@ def get_prediction(prediction_id):
         return jsonify(prediction_data)
     else:
         return jsonify({"Message": "Prediction not found"})
+
+@app.route('/api/delete/<prediction_id>', methods=['DELETE'])
+@cross_origin()
+def delete_data(prediction_id):
+    data_prediction = pred_collection.find_one({"_id" : ObjectId(prediction_id)})
+    home_id = data_prediction["home_code"]
+    opp_id = data_prediction["opp_code"]
+    check_home_id = klasemen_collection.find_one({"team_id" : home_id})
+    check_opp_id = klasemen_collection.find_one({"team_id" : opp_id})
+
+    jumlah_data_home = pred_collection.count_documents({"home_code" : home_id})
+    jumlah_data_opp = pred_collection.count_documents({"opp_code" : opp_id})
+
+    if check_home_id  and check_opp_id:
+        prev_home_value = data_prediction["home_prediction"] * 100
+        latest_home_value = check_home_id["total_pred"] * 100
+        new_home_value = (latest_home_value * jumlah_data_home - prev_home_value)/(jumlah_data_home - 1)
+        id_filter = home_id
+
+        prev_opp_value = data_prediction["away_prediction"] * 100
+        latest_opp_value = check_opp_id["total_pred"] * 100
+        new_opp_value = (latest_opp_value * jumlah_data_opp - prev_opp_value)/(jumlah_data_opp - 1)
+
+    
+    filter_home_query = {"team_code": home_id}
+    update_home_query = {"$set": {"total_pred": new_home_value}}
+    klasemen_collection.update_one(filter_home_query, update_home_query)
+
+    filter_opp_query = {"team_code": opp_id}
+    update_opp_query = {"$set": {"total_pred": new_opp_value}}
+    klasemen_collection.update_one(filter_opp_query, update_opp_query)
+    
+    pred_collection.delete_one({"_id" : ObjectId(prediction_id)})
 
 if __name__ == '__main__':
     app.run(debug=True)
