@@ -121,7 +121,6 @@ def delete_data(prediction_id):
         prev_home_value = data_prediction["home_prediction"] * 100
         latest_home_value = check_home_id["total_pred"] * 100
         new_home_value = (latest_home_value * jumlah_data_home - prev_home_value)/(jumlah_data_home - 1)
-        id_filter = home_id
 
         prev_opp_value = data_prediction["away_prediction"] * 100
         latest_opp_value = check_opp_id["total_pred"] * 100
