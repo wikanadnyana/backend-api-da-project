@@ -9,7 +9,7 @@ from bson import ObjectId
 
 app = Flask(__name__)
 
-model = pickle.load(open("./model/model3.pkl", "rb"))
+model = pickle.load(open("./model/modelbaru.pkl", "rb"))
 
 uri = "mongodb://localhost:27017"
 client = MongoClient(uri, server_api=ServerApi('1'))
@@ -30,18 +30,17 @@ def predict():
     day = dt.day
     
     data_input = [
-        int(latest_data['round']), float(latest_data['venue']), float(latest_data['gf']), float(latest_data['ga']),
+        int(latest_data['round']), float(latest_data['gf']), float(latest_data['ga']),
         float(latest_data['xg']), float(latest_data['xga']), float(latest_data['poss']),
         float(latest_data['formation']), float(latest_data['sh']), float(latest_data['sot']),
         float(latest_data['dist']), float(latest_data['fk']), float(latest_data['pk']), float(latest_data['pkatt']),
-        float(latest_data['venue_code']), int(data['opp_code']), int(data['hour']), day,
-        float(latest_data['gf_rolling']), float(latest_data['ga_rolling']), float(latest_data['sh_rolling']),
-        float(latest_data['sot_rolling']), float(latest_data['dist_rolling']), float(latest_data['fk_rolling']),
-        float(latest_data['pk_rolling']), float(latest_data['pkatt_rolling']), int(data['home_code'])
+        float(latest_data['venue_code']), int(data['opp_code']), int(data['hour']), day, int(data['home_code'])
     ]
-    data_input = np.array(data_input)
-    data_input = data_input.reshape(1, -1)
-    data_input = data_input.reshape((1, 1, 27))
+    # data_input = np.array(data_input)
+    # data_input = data_input.reshape(1, -1)
+    # data_input = data_input.reshape((1, 1, 27))
+    data_input = np.array(data_input).reshape(-1, 1, 18)
+    data_input = np.reshape(data_input, (data_input.shape[0], -1, 1))
     
     prediction = model.predict(data_input)
     prediction = float(prediction)
