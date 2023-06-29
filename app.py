@@ -9,7 +9,7 @@ from bson import ObjectId
 
 app = Flask(__name__)
 
-model = pickle.load(open("./model/modelbaru.pkl", "rb"))
+model = pickle.load(open("./model/modelsoftmax.pkl", "rb"))
 
 uri = "mongodb://localhost:27017"
 client = MongoClient(uri, server_api=ServerApi('1'))
@@ -43,9 +43,12 @@ def predict():
     data_input = np.reshape(data_input, (data_input.shape[0], -1, 1))
     
     prediction = model.predict(data_input)
-    prediction = float(prediction)
-    away_prediction = 100 - prediction
-    detail = f'Hasil prediksi pertandingannya yaitu home team memiliki peluang sebesar : {prediction}, sedangkan away team memiliki peluang sebesar :   {away_prediction}'
+    # prediction = float(prediction)
+    # away_prediction = 100 - prediction
+    home_predict = float(prediction[0][0]) * 100
+    away_predict = float(prediction[0][1]) * 100
+    draw_predict = float(prediction[0][2]) * 100
+    detail = f'Hasil prediksi pertandingannya yaitu home team memiliki peluang sebesar : {home_predict}%, sedangkan away team memiliki peluang sebesar : {away_predict}%, dan peluang terjadinya draw : {draw_predict}%'
     group_concat = "Group " + str(data["group"])
 
 
@@ -56,16 +59,18 @@ def predict():
             "date": datetime.now(),
             "home_code": int(data["home_code"]),
             "opp_code": int(data["opp_code"]),
-            "home_prediction": prediction,
-            "away_prediction": away_prediction,
+            "home_prediction": home_predict,
+            "away_prediction": away_predict,
+            "draw_prediction" : draw_predict,
             "match_date": tanggal_waktu,
             "detail" : detail,
             "group" : group_concat
         }
         pred_collection.insert_one(pred_data)
-
-        return jsonify({"Home Prediction": prediction, "Away Prediction": away_prediction})
+        return jsonify({"Home Prediction": home_predict, "Away Prediction": away_predict, "Draw Prediction" : draw_predict})
     
+
+
 @app.route("/api/predictions", methods=['GET'])
 @cross_origin()
 def get_predictions():
@@ -75,6 +80,7 @@ def get_predictions():
             "id": str(prediction["_id"]),
             "home_prediction": prediction["home_prediction"],
             "away_prediction": prediction["away_prediction"],
+            "draw_prediction" : prediction["draw_prediction"],
             "group": prediction["group"],
             "match_date": prediction["match_date"],
             "home_code": prediction["home_code"],
@@ -94,6 +100,7 @@ def get_prediction(prediction_id):
             "id": str(prediction["_id"]),
             "home_prediction": prediction["home_prediction"],
             "away_prediction": prediction["away_prediction"],
+            "draw_prediction" : prediction["draw_prediction"],
             "group": prediction["group"],
             "match_date": prediction["match_date"],
             "home_code": prediction["home_code"],
