@@ -28,23 +28,23 @@ def predict():
     latest_data_list = list(latest_data)
     
     # Memeriksa apakah ada data pertandingan yang tersedia
-    if len(latest_data_list) < 20:
+    if len(latest_data_list) < 10:
         return jsonify({"Message": "Not enough data available"})
     
-    # Menghitung rata-rata dari 20 pertandingan terakhir
-    round_avg = sum([int(d['round']) for d in latest_data_list]) / 20
-    gf_avg = sum([float(d['gf']) for d in latest_data_list]) / 20
-    ga_avg = sum([float(d['ga']) for d in latest_data_list]) / 20
-    xg_avg = sum([float(d['xg']) for d in latest_data_list]) / 20
-    xga_avg = sum([float(d['xga']) for d in latest_data_list]) / 20
-    poss_avg = sum([float(d['poss']) for d in latest_data_list]) / 20
-    formation_avg = sum([float(d['formation']) for d in latest_data_list]) / 20
-    sh_avg = sum([float(d['sh']) for d in latest_data_list]) / 20
-    sot_avg = sum([float(d['sot']) for d in latest_data_list]) / 20
-    dist_avg = sum([float(d['dist']) for d in latest_data_list]) / 20
-    fk_avg = sum([float(d['fk']) for d in latest_data_list]) / 20
-    pk_avg = sum([float(d['pk']) for d in latest_data_list]) / 20
-    pkatt_avg = sum([float(d['pkatt']) for d in latest_data_list]) / 20
+    # Menghitung rata-rata dari 10 pertandingan terakhir
+    round_avg = sum([int(d['round']) for d in latest_data_list]) / 10
+    gf_avg = sum([float(d['gf']) for d in latest_data_list]) / 10
+    ga_avg = sum([float(d['ga']) for d in latest_data_list]) / 10
+    xg_avg = sum([float(d['xg']) for d in latest_data_list]) / 10
+    xga_avg = sum([float(d['xga']) for d in latest_data_list]) / 10
+    poss_avg = sum([float(d['poss']) for d in latest_data_list]) / 10
+    formation_avg = sum([float(d['formation']) for d in latest_data_list]) / 10
+    sh_avg = sum([float(d['sh']) for d in latest_data_list]) / 10
+    sot_avg = sum([float(d['sot']) for d in latest_data_list]) / 10
+    dist_avg = sum([float(d['dist']) for d in latest_data_list]) / 10
+    fk_avg = sum([float(d['fk']) for d in latest_data_list]) / 10
+    pk_avg = sum([float(d['pk']) for d in latest_data_list]) / 10
+    pkatt_avg = sum([float(d['pkatt']) for d in latest_data_list]) / 10
     venue_code = latest_data_list[0]['venue_code']
     
     tanggal_waktu = data["date"]
