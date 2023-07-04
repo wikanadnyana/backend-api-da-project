@@ -12,7 +12,7 @@ app = Flask(__name__)
 model = pickle.load(open("./model/modelsoftmax.pkl", "rb"))
 
 uri = "mongodb://localhost:27017"
-client = MongoClient(uri, server_api=ServerApi('1'))
+client = MongoClient(uri, server_api=ServerApi('1'))    
 database = client['football-predict']
 collection = database['master']
 pred_collection = database['prediksi']
@@ -24,33 +24,47 @@ def predict():
     data = request.get_json()
     data["home_code"] = int(data["home_code"])
     
-    latest_data = collection.find_one({'home_code': data['home_code']}, sort=[('date', -1)])
+    latest_data = collection.find({'home_code': data['home_code']}, sort=[('date', -1)]).limit(10)
+    latest_data_list = list(latest_data)
+    
+    # Memeriksa apakah ada data pertandingan yang tersedia
+    if len(latest_data_list) < 20:
+        return jsonify({"Message": "Not enough data available"})
+    
+    # Menghitung rata-rata dari 20 pertandingan terakhir
+    round_avg = sum([int(d['round']) for d in latest_data_list]) / 20
+    gf_avg = sum([float(d['gf']) for d in latest_data_list]) / 20
+    ga_avg = sum([float(d['ga']) for d in latest_data_list]) / 20
+    xg_avg = sum([float(d['xg']) for d in latest_data_list]) / 20
+    xga_avg = sum([float(d['xga']) for d in latest_data_list]) / 20
+    poss_avg = sum([float(d['poss']) for d in latest_data_list]) / 20
+    formation_avg = sum([float(d['formation']) for d in latest_data_list]) / 20
+    sh_avg = sum([float(d['sh']) for d in latest_data_list]) / 20
+    sot_avg = sum([float(d['sot']) for d in latest_data_list]) / 20
+    dist_avg = sum([float(d['dist']) for d in latest_data_list]) / 20
+    fk_avg = sum([float(d['fk']) for d in latest_data_list]) / 20
+    pk_avg = sum([float(d['pk']) for d in latest_data_list]) / 20
+    pkatt_avg = sum([float(d['pkatt']) for d in latest_data_list]) / 20
+    venue_code = latest_data_list[0]['venue_code']
+    
     tanggal_waktu = data["date"]
     dt = datetime.strptime(tanggal_waktu, "%Y-%m-%d")
     day = dt.day
     
     data_input = [
-        int(latest_data['round']), float(latest_data['gf']), float(latest_data['ga']),
-        float(latest_data['xg']), float(latest_data['xga']), float(latest_data['poss']),
-        float(latest_data['formation']), float(latest_data['sh']), float(latest_data['sot']),
-        float(latest_data['dist']), float(latest_data['fk']), float(latest_data['pk']), float(latest_data['pkatt']),
-        float(latest_data['venue_code']), int(data['opp_code']), int(data['hour']), day, int(data['home_code'])
+        round_avg, gf_avg, ga_avg, xg_avg, xga_avg, poss_avg, formation_avg, sh_avg, sot_avg,
+        dist_avg, fk_avg, pk_avg, pkatt_avg, venue_code, int(data['opp_code']), int(data['hour']), day, int(data['home_code'])
     ]
-    # data_input = np.array(data_input)
-    # data_input = data_input.reshape(1, -1)
-    # data_input = data_input.reshape((1, 1, 27))
+    
     data_input = np.array(data_input).reshape(-1, 1, 18)
     data_input = np.reshape(data_input, (data_input.shape[0], -1, 1))
     
     prediction = model.predict(data_input)
-    # prediction = float(prediction)
-    # away_prediction = 100 - prediction
     home_predict = float(prediction[0][0]) * 100
     away_predict = float(prediction[0][1]) * 100
     draw_predict = float(prediction[0][2]) * 100
     detail = f'Hasil prediksi pertandingannya yaitu home team memiliki peluang sebesar : {home_predict}%, sedangkan away team memiliki peluang sebesar : {away_predict}%, dan peluang terjadinya draw : {draw_predict}%'
     group_concat = "Group " + str(data["group"])
-
 
     if data["opp_code"] == data["home_code"]:
         return jsonify({"Message": "The Team Cannot Be the Same"})
@@ -68,6 +82,7 @@ def predict():
         }
         pred_collection.insert_one(pred_data)
         return jsonify({"Home Prediction": home_predict, "Away Prediction": away_predict, "Draw Prediction" : draw_predict})
+
     
 
 
@@ -141,7 +156,7 @@ def delete_data(prediction_id):
     update_opp_query = {"$set": {"total_pred": new_opp_value}}
     klasemen_collection.update_one(filter_opp_query, update_opp_query)
     
-    pred_collection.delete_one({"_id" : ObjectId(prediction_id)})
+    pred_collection.delete_one({"_id" : ObjectId(prediction_id)})   
 
 if __name__ == '__main__':
     app.run(debug=True)
