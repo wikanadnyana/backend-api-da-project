@@ -24,27 +24,27 @@ def predict():
     data = request.get_json()
     data["home_code"] = int(data["home_code"])
     
-    latest_data = collection.find({'home_code': data['home_code']}, sort=[('date', -1)]).limit(10)
+    latest_data = collection.find({'home_code': data['home_code']}, sort=[('date', -1)]).limit(20)
     latest_data_list = list(latest_data)
     
     # Memeriksa apakah ada data pertandingan yang tersedia
-    if len(latest_data_list) < 10:
+    if len(latest_data_list) < 20:
         return jsonify({"Message": "Not enough data available"})
     
     # Menghitung rata-rata dari 10 pertandingan terakhir
-    round_avg = sum([int(d['round']) for d in latest_data_list]) / 10
-    gf_avg = sum([float(d['gf']) for d in latest_data_list]) / 10
-    ga_avg = sum([float(d['ga']) for d in latest_data_list]) / 10
-    xg_avg = sum([float(d['xg']) for d in latest_data_list]) / 10
-    xga_avg = sum([float(d['xga']) for d in latest_data_list]) / 10
-    poss_avg = sum([float(d['poss']) for d in latest_data_list]) / 10
-    formation_avg = sum([float(d['formation']) for d in latest_data_list]) / 10
-    sh_avg = sum([float(d['sh']) for d in latest_data_list]) / 10
-    sot_avg = sum([float(d['sot']) for d in latest_data_list]) / 10
-    dist_avg = sum([float(d['dist']) for d in latest_data_list]) / 10
-    fk_avg = sum([float(d['fk']) for d in latest_data_list]) / 10
-    pk_avg = sum([float(d['pk']) for d in latest_data_list]) / 10
-    pkatt_avg = sum([float(d['pkatt']) for d in latest_data_list]) / 10
+    round_avg = sum([int(d['round']) for d in latest_data_list]) / 20
+    gf_avg = sum([float(d['gf']) for d in latest_data_list]) / 20
+    ga_avg = sum([float(d['ga']) for d in latest_data_list]) / 20
+    xg_avg = sum([float(d['xg']) for d in latest_data_list]) / 20
+    xga_avg = sum([float(d['xga']) for d in latest_data_list]) / 20
+    poss_avg = sum([float(d['poss']) for d in latest_data_list]) / 20
+    formation_avg = sum([float(d['formation']) for d in latest_data_list]) / 20
+    sh_avg = sum([float(d['sh']) for d in latest_data_list]) / 20
+    sot_avg = sum([float(d['sot']) for d in latest_data_list]) / 20
+    dist_avg = sum([float(d['dist']) for d in latest_data_list]) / 20
+    fk_avg = sum([float(d['fk']) for d in latest_data_list]) / 20
+    pk_avg = sum([float(d['pk']) for d in latest_data_list]) / 20
+    pkatt_avg = sum([float(d['pkatt']) for d in latest_data_list]) / 20
     venue_code = latest_data_list[0]['venue_code']
     
     tanggal_waktu = data["date"]
@@ -81,6 +81,43 @@ def predict():
             "group" : group_concat
         }
         pred_collection.insert_one(pred_data)
+
+        check_home_id = klasemen_collection.find_one({"team_id" : int(data["home_code"])})
+        check_opp_id = klasemen_collection.find_one({"team_id" : int(data["opp_code"])})
+        jumlah_data_home = pred_collection.count_documents({"home_code" : int(data["home_code"])})
+        jumlah_data_opp = pred_collection.count_documents({"opp_code" : int(data["opp_code"])})
+
+        if check_home_id  and check_opp_id:
+            multiply_to_count_home = check_home_id["total_pred"] * (jumlah_data_home - 1)
+            multiply_to_count_opp = check_opp_id["total_pred"] * (jumlah_data_opp - 1)
+            total_data_home = home_predict + multiply_to_count_home
+            total_data_opp = away_predict + multiply_to_count_opp
+            avg_home = total_data_home / jumlah_data_home
+            avg_opp = total_data_opp / jumlah_data_opp
+
+
+            filter_home_query = {"team_code": int(data["home_code"])}
+            update_home_query = {"$set": {"total_pred": avg_home}}
+            klasemen_collection.update_one(filter_home_query, update_home_query)
+
+            filter_opp_query = {"team_code": int(data["opp_code"])}
+            update_opp_query = {"$set": {"total_pred": avg_opp}}
+            klasemen_collection.update_one(filter_opp_query, update_opp_query)
+        else :
+            klasemen_data_home = {
+                "team_id" : int(data["home_code"]),
+                "total_pred" : home_predict
+            }
+
+            klasemen_data_opp = {
+                "team_id" : int(data["opp_code"]),
+                "total_pred" : away_predict
+            }
+
+            klasemen_collection.insert_one(klasemen_data_home)
+            klasemen_collection.insert_one(klasemen_data_opp)
+
+        
         return jsonify({"Home Prediction": home_predict, "Away Prediction": away_predict, "Draw Prediction" : draw_predict})
 
     
@@ -139,12 +176,12 @@ def delete_data(prediction_id):
     jumlah_data_opp = pred_collection.count_documents({"opp_code" : opp_id})
 
     if check_home_id  and check_opp_id:
-        prev_home_value = data_prediction["home_prediction"] * 100
-        latest_home_value = check_home_id["total_pred"] * 100
+        prev_home_value = data_prediction["home_prediction"] 
+        latest_home_value = check_home_id["total_pred"]
         new_home_value = (latest_home_value * jumlah_data_home - prev_home_value)/(jumlah_data_home - 1)
 
-        prev_opp_value = data_prediction["away_prediction"] * 100
-        latest_opp_value = check_opp_id["total_pred"] * 100
+        prev_opp_value = data_prediction["away_prediction"]
+        latest_opp_value = check_opp_id["total_pred"]
         new_opp_value = (latest_opp_value * jumlah_data_opp - prev_opp_value)/(jumlah_data_opp - 1)
 
     
@@ -157,6 +194,19 @@ def delete_data(prediction_id):
     klasemen_collection.update_one(filter_opp_query, update_opp_query)
     
     pred_collection.delete_one({"_id" : ObjectId(prediction_id)})   
+
+@app.route("/api/klasemen", methods=['GET'])
+@cross_origin()
+def get_klasemen():
+    klasemens = []
+    for klasemen in klasemen_collection.find():
+        klasemen_data = {
+            "team_id": klasemen["team_id"],
+            "total_pred": klasemen["total_pred"]
+        }
+        klasemens.append(klasemen_data)
+
+    return jsonify(klasemens)
 
 if __name__ == '__main__':
     app.run(debug=True)
