@@ -124,10 +124,9 @@ def predict():
         update_opp_query = {"$set": {"total_pred": avg_opp}}
         klasemen_collection.update_one(filter_opp_query, update_opp_query)
 
-    return jsonify({"Pesan": "Tambah baru"})
+    # return jsonify({"Pesan": "Tambah baru"})
 
-
-    # return jsonify({"pesan" : str(home_klasemen) + "dan" + str(opp_klasemen) })
+    return jsonify({"pesan" : str(avg_home) + "dan" + str(avg_opp) })
         
 
 
