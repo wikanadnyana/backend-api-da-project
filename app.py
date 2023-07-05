@@ -12,7 +12,7 @@ app = Flask(__name__)
 model = pickle.load(open("./model/modelsoftmax.pkl", "rb"))
 
 uri = "mongodb://localhost:27017"
-client = MongoClient(uri, server_api=ServerApi('1'))    
+client = MongoClient(uri, server_api=ServerApi('1'))     
 database = client['football-predict']
 collection = database['master']
 pred_collection = database['prediksi']
@@ -23,6 +23,7 @@ klasemen_collection = database['klasemen']
 def predict():
     data = request.get_json()
     data["home_code"] = int(data["home_code"])
+    data["opp_code"] = int(data["opp_code"])
     
     latest_data = collection.find({'home_code': data['home_code']}, sort=[('date', -1)]).limit(20)
     latest_data_list = list(latest_data)
@@ -53,7 +54,7 @@ def predict():
     
     data_input = [
         round_avg, gf_avg, ga_avg, xg_avg, xga_avg, poss_avg, formation_avg, sh_avg, sot_avg,
-        dist_avg, fk_avg, pk_avg, pkatt_avg, venue_code, int(data['opp_code']), int(data['hour']), day, int(data['home_code'])
+        dist_avg, fk_avg, pk_avg, pkatt_avg, venue_code, data['opp_code'], int(data['hour']), day, int(data['home_code'])
     ]
     
     data_input = np.array(data_input).reshape(-1, 1, 18)
@@ -63,7 +64,7 @@ def predict():
     home_predict = float(prediction[0][0]) * 100
     away_predict = float(prediction[0][1]) * 100
     draw_predict = float(prediction[0][2]) * 100
-    detail = f'Hasil prediksi pertandingannya yaitu home team memiliki peluang sebesar : {home_predict}%, sedangkan away team memiliki peluang sebesar : {away_predict}%, dan peluang terjadinya draw : {draw_predict}%'
+    detail = f'Hasil prediksi pertandingannya yaitu home team memiliki peluang sebesar: {home_predict}%, sedangkan away team memiliki peluang sebesar: {away_predict}%, dan peluang terjadinya draw: {draw_predict}%'
     group_concat = "Group " + str(data["group"])
 
     if data["opp_code"] == data["home_code"]:
@@ -82,45 +83,52 @@ def predict():
         }
         pred_collection.insert_one(pred_data)
 
-        check_home_id = klasemen_collection.find_one({"team_id" : int(data["home_code"])})
-        check_opp_id = klasemen_collection.find_one({"team_id" : int(data["opp_code"])})
-        jumlah_data_home = pred_collection.count_documents({"home_code" : int(data["home_code"])})
-        jumlah_data_opp = pred_collection.count_documents({"opp_code" : int(data["opp_code"])})
+    home_klasemen = klasemen_collection.find_one({"team_id": int(data["home_code"])})
+    opp_klasemen = klasemen_collection.find_one({"team_id": int(data["opp_code"])})
+    jumlah_data_home = pred_collection.count_documents({"home_code": int(data["home_code"])})
+    jumlah_data_opp = pred_collection.count_documents({"opp_code": int(data["opp_code"])})
 
-        if check_home_id  and check_opp_id:
-            multiply_to_count_home = check_home_id["total_pred"] * (jumlah_data_home - 1)
-            multiply_to_count_opp = check_opp_id["total_pred"] * (jumlah_data_opp - 1)
-            total_data_home = home_predict + multiply_to_count_home
-            total_data_opp = away_predict + multiply_to_count_opp
-            avg_home = total_data_home / jumlah_data_home
-            avg_opp = total_data_opp / jumlah_data_opp
+    if home_klasemen is not None:
+        multiply_to_count_home = float(home_klasemen["total_pred"]) * (jumlah_data_home - 1)
+        total_data_home = home_predict + multiply_to_count_home
+        avg_home = total_data_home / jumlah_data_home
+        filter_home_query = {"team_id": int(data["home_code"])}
+        update_home_query = {"$set": {"total_pred": avg_home}}
+        klasemen_collection.update_one(filter_home_query, update_home_query)
+
+    if opp_klasemen is not None:
+        multiply_to_count_opp = float(opp_klasemen["total_pred"]) * (jumlah_data_opp - 1)
+        total_data_opp = away_predict + multiply_to_count_opp
+        avg_opp = total_data_opp / jumlah_data_opp
+        filter_opp_query = {"team_id": int(data["opp_code"])}
+        update_opp_query = {"$set": {"total_pred": avg_opp}}
+        klasemen_collection.update_one(filter_opp_query, update_opp_query)
+
+    if home_klasemen is None:
+        klasemen_data_home = {
+            "team_id": int(data["home_code"]),
+            "total_pred": home_predict
+        }
+        klasemen_collection.insert_one(klasemen_data_home)
+
+    if opp_klasemen is None:
+        klasemen_data_opp = {
+            "team_id": int(data["opp_code"]),
+            "total_pred": away_predict
+        }
+        klasemen_collection.insert_one(klasemen_data_opp)
+
+    # Update avg_opp for the opponent team
+    if home_klasemen is not None and opp_klasemen is None:
+        filter_opp_query = {"team_id": int(data["opp_code"])}
+        update_opp_query = {"$set": {"total_pred": avg_opp}}
+        klasemen_collection.update_one(filter_opp_query, update_opp_query)
+
+    return jsonify({"Pesan": "Tambah baru"})
 
 
-            filter_home_query = {"team_code": int(data["home_code"])}
-            update_home_query = {"$set": {"total_pred": avg_home}}
-            klasemen_collection.update_one(filter_home_query, update_home_query)
-
-            filter_opp_query = {"team_code": int(data["opp_code"])}
-            update_opp_query = {"$set": {"total_pred": avg_opp}}
-            klasemen_collection.update_one(filter_opp_query, update_opp_query)
-        else :
-            klasemen_data_home = {
-                "team_id" : int(data["home_code"]),
-                "total_pred" : home_predict
-            }
-
-            klasemen_data_opp = {
-                "team_id" : int(data["opp_code"]),
-                "total_pred" : away_predict
-            }
-
-            klasemen_collection.insert_one(klasemen_data_home)
-            klasemen_collection.insert_one(klasemen_data_opp)
-
+    # return jsonify({"pesan" : str(home_klasemen) + "dan" + str(opp_klasemen) })
         
-        return jsonify({"Home Prediction": home_predict, "Away Prediction": away_predict, "Draw Prediction" : draw_predict})
-
-    
 
 
 @app.route("/api/predictions", methods=['GET'])
